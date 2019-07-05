@@ -15,6 +15,7 @@ struct pledge_state {
 	uint64_t exec_promises;
 };
 
+int pledge_syscall(struct task_struct *task, int nr, uint64_t *tval);
 int pledge(struct task_struct *task, const void *promises,
 	   const void *exec_promises);
 

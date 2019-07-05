@@ -25,6 +25,7 @@
 #include <linux/uprobes.h>
 #include <linux/livepatch.h>
 #include <linux/syscalls.h>
+#include <linux/pledge.h>
 
 #include <asm/desc.h>
 #include <asm/traps.h>
@@ -59,6 +60,26 @@ static void do_audit_syscall_entry(struct pt_regs *regs, u32 arch)
 		audit_syscall_entry(regs->orig_ax, regs->bx,
 				    regs->cx, regs->dx, regs->si);
 	}
+}
+
+static long syscall_pledge_enter(struct pt_regs *regs)
+{
+	struct task_struct *task = current;
+	unsigned long ret = 0;
+	char pledged = 0;
+	u64 nr = regs->orig_ax;
+	u64 tval;
+
+	if (task->pledge_state)
+		pledged = task->pledge_state->state;
+
+	if (pledged && (ret = pledge_syscall(task, nr, &tval))) {
+		// FIXME: Replace this with a call to pledge_fail
+		ret = -tval;
+	}
+
+	// FIXME: Make sure this is right
+	return ret ?: regs->orig_ax;
 }
 
 /*
@@ -282,6 +303,7 @@ __visible void do_syscall_64(unsigned long nr, struct pt_regs *regs)
 	if (READ_ONCE(ti->flags) & _TIF_WORK_SYSCALL_ENTRY)
 		nr = syscall_trace_enter(regs);
 
+	nr = syscall_pledge_enter(regs);
 	/*
 	 * NB: Native and x32 syscalls are dispatched from the same
 	 * table.  The only functional difference is the x32 bit in
@@ -322,6 +344,8 @@ static __always_inline void do_syscall_32_irqs_on(struct pt_regs *regs)
 		 */
 		nr = syscall_trace_enter(regs);
 	}
+
+	nr = syscall_pledge_enter(regs);
 
 	if (likely(nr < IA32_NR_syscalls)) {
 		nr = array_index_nospec(nr, IA32_NR_syscalls);
