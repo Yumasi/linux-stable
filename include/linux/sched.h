@@ -44,6 +44,7 @@ struct nsproxy;
 struct perf_event_context;
 struct pid_namespace;
 struct pipe_inode_info;
+struct pledge_state;
 struct rcu_node;
 struct reclaim_state;
 struct robust_list_head;
@@ -1192,6 +1193,8 @@ struct task_struct {
 	/* Used by LSM modules for access restriction: */
 	void				*security;
 #endif
+
+	struct pledge_state		*pledge_state;
 
 	/*
 	 * New fields for task_struct should be added above here, so that
